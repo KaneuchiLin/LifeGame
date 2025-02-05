@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>LifeGame</title>
+        <style>
+            body{
+                color:#3c444d;
+                align-items:center;
+                justify-items:center;
+                text-align:center;
+                background:linear-gradient(to right bottom,#f0f8ff,#b0c4de);
+                background-color:#b0c4de;
+            }
+            input{
+                width:60px;
+                border:none;
+                border-radius:8px;
+                transition:transform 0.2s;
+            }
+            input:hover{
+                transform:scale(1.01);
+            }
+            button{
+                border:none;
+                border-radius:8px;
+                color:white;
+                background-color:#88b6e3;
+                transition: background-color 0.2s, transform 0.2s;
+            }
+            button:hover{
+                background-color:#99ccff;
+                transform:scale(1.01);
+            }
+            .full{
+                width:120px;
+            }
+            .half{
+                width:60px;
+            }
+            .right{
+                text-align:right;
+            }
+            .left{
+                text-align:left;
+            }
+            .container{
+                display:flex;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>LifeGame</h1><br>
+        <canvas id="Display" width="1120" height="1120"></canvas><br>
+        <strong id="Generation">Generation : 0</strong><br>
+        <div class="container">
+            <div class="right">
+                <strong>Speed : </strong><br>
+                <strong>Size : </strong><br>
+                <strong>Density : </strong><br>
+            </div>
+            <div class="left">
+                <input id="Speed" type="number" min="1" max="1000" step="1" value="100"><br>
+                <input id="Size" type="number" min="2" max="256" step="1" value="64"><br>
+                <input id="Density" type="number" min="0" max="1" step="0.05" value="0.5"><br>
+            </div>
+            <div class="left">
+                <button id="Start" class="half">Start</button><button id="Step" class="half">Step</button><br>
+                <button id="Reset" class="full">Reset</button><br>
+                <button id="Randomize" class="full">Randomize</button><br>
+            </div>
+        <script>
+            class LifeGame{
+                constructor(size=64,canvasId,backgroundColor,gridColor,cellColor){
+                    this.generation=0;
+                    this.size=size;
+                    this.canvas=document.getElementById(canvasId);
+                    this.backgroundColor=backgroundColor;
+                    this.gridColor=gridColor;
+                    this.cellColor=cellColor;
+                    this.grid=Array.from({length:size},() => Array(size).fill(0));
+                    this.cellToUpDate=[];
+                    this.canvas.addEventListener("click",(event) => this.clickCanvas(event));
+                    this.fillCanvas();
+                    this.makeGridCanvas();
+                };
+                reset(size=64,backgroundColor,gridColor,cellColor){
+                    this.generation=0;
+                    this.size=size;
+                    this.backgroundColor=backgroundColor;
+                    this.gridColor=gridColor;
+                    this.cellColor=cellColor;
+                    this.grid=Array.from({length:size},() => Array(size).fill(0));
+                    this.cellToUpDate=[];
+                    this.fillCanvas();
+                    this.makeGridCanvas();
+                };
+                clickCanvas(event){
+                    const rect=this.canvas.getBoundingClientRect();
+                    const x=Math.floor((event.clientX-rect.left)*this.size/this.canvas.width);
+                    const y=Math.floor((event.clientY-rect.top)*this.size/this.canvas.height);
+                    this.toggleCell([x,y]);
+                };
+                fillCanvas(){
+                    const ctx=this.canvas.getContext("2d");
+                    ctx.fillStyle=this.backgroundColor;
+                    ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+                    ctx.fillRect(0,0,this.canvas.width,this.canvas.height);
+                };
+                makeGridCanvas(){
+                    const ctx=this.canvas.getContext("2d");
+                        ctx.strokeStyle=this.gridColor;
+                        ctx.lineWidth=1;
+                    for (let i=0;i<this.size+1;i++){
+                        ctx.beginPath();
+                        ctx.moveTo(i*(this.canvas.width/this.size),0);
+                        ctx.lineTo(i*(this.canvas.width/this.size),this.canvas.height);
+                        ctx.stroke();
+                        ctx.beginPath();
+                        ctx.moveTo(0,i*(this.canvas.height/this.size));
+                        ctx.lineTo(this.canvas.height,i*(this.canvas.height/this.size));
+                        ctx.stroke();
+                    };
+                };
+                plotPoint(pos,color){
+                    const ctx=this.canvas.getContext("2d");
+                    ctx.fillStyle=color;
+                    ctx.clearRect(pos[0]*(this.canvas.width/this.size)+1,pos[1]*(this.canvas.height/this.size)+1,(this.canvas.width/this.size)-2,(this.canvas.height/this.size)-2);
+                    ctx.fillRect(pos[0]*(this.canvas.width/this.size)+1,pos[1]*(this.canvas.height/this.size)+1,(this.canvas.width/this.size)-2,(this.canvas.height/this.size)-2);
+                };
+                setCell(pos){
+                    this.grid[pos[0]][pos[1]]=1;
+                    for (let i=pos[0]-1;i<=pos[0]+1;i++){
+                        for (let j=pos[1]-1;j<=pos[1]+1;j++){
+                            if (i >= 0 && j >= 0 && i < this.size && j < this.size && !this.cellToUpDate.some(value => value[0] === i && value[1] === j)){
+                                this.cellToUpDate.push([i,j]);
+                            };
+                        };
+                    };
+                    this.plotPoint(pos,this.cellColor);
+                };
+                removeCell(pos){
+                    this.grid[pos[0]][pos[1]]=0;
+                    this.plotPoint(pos,this.backgroundColor);
+                };
+                toggleCell(pos){
+                    if (this.getCellState(pos) == 1){
+                        this.removeCell(pos);
+                    }
+                    else{
+                        this.setCell(pos);
+                    };
+                };
+                clearGrid(){
+                    this.grid=Array.from({length:this.size},() => Array(this.size).fill(0));
+                    this.cellToUpDate=[]
+                    this.fillCanvas();
+                    this.makeGridCanvas();
+                };
+                randomize(density=0.5){
+                    this.generation=0;
+                    this.clearGrid();
+                    for (let i=0;i<this.size;i++){
+                        for (let j=0;j<this.size;j++){
+                            let score=Math.random();
+                            if (score <= density){
+                                this.setCell([i,j]);
+                            };
+                        };
+                    };
+                };
+                countAliveNeibors(pos){
+                    let score=0
+                    for (let i=pos[0]-1;i<=pos[0]+1;i++){
+                        for (let j=pos[1]-1;j<=pos[1]+1;j++){
+                            if (i >= 0 && j >= 0 && i < this.size && j < this.size){
+                                if (i !== pos[0] || j !== pos[1]){
+                                    score += this.grid[i][j];
+                                };
+                            };
+                        };
+                    };
+                    return score;
+                };
+                getCellState(pos){
+                    return this.grid[pos[0]][pos[1]];
+                };
+                tick(){
+                    this.fillCanvas();
+                    this.makeGridCanvas();
+                    let new_grid=Array.from({length:this.size},() => Array(this.size).fill(0))
+                    let new_cellToUpDate=[]
+
+                    for (let i of this.cellToUpDate){
+                        let score=this.countAliveNeibors(i);
+                        if (this.getCellState(i) == 1){
+                            if (score <= 1){}
+                            else if (score >= 4){}
+                            else{
+                                new_grid[i[0]][i[1]]=1;
+                                this.plotPoint(i,this.cellColor);
+                                for (let j=i[0]-1;j<=i[0]+1;j++){
+                                    for (let k=i[1]-1;k<=i[1]+1;k++){
+                                        if (j >= 0 && k >= 0 && j < this.size && k < this.size && !new_cellToUpDate.some(value => value[0] === j && value[1] === k)){
+                                            new_cellToUpDate.push([j,k]);
+                                        };
+                                    };
+                                };
+                            };
+                        }
+                        else{
+                            if (score == 3){
+                                this.plotPoint(i,this.cellColor);
+                                new_grid[i[0]][i[1]]=1
+                                for (let j=i[0]-1;j<=i[0]+1;j++){
+                                    for (let k=i[1]-1;k<=i[1]+1;k++){
+                                        if (j >= 0 && k >= 0 && j < this.size && k < this.size && !new_cellToUpDate.some(value => value[0] === j && value[1] === k)){
+                                            new_cellToUpDate.push([j,k]);
+                                        };
+                                    };
+                                };
+                            };
+                        }
+                    };
+                    this.grid=new_grid;
+                    this.cellToUpDate=new_cellToUpDate;
+                    this.generation += 1;
+                };
+            };
+            function tick(){
+                lifeGame.tick();
+                generationLabel.textContent=`Generation : ${lifeGame.generation}`;
+                setTimeout(function(){if (ticking == 1){tick()}},parseInt(speedInput.value));
+            };
+            function switch_ticking(){
+                ticking=!ticking;
+                if (ticking == 1){
+                    tick();
+                    startButton.textContent="Stop";
+                    stepButton.disabled="disabled";
+                }
+                else{
+                    startButton.textContent="Start";
+                    stepButton.disabled=null;
+                }
+            };
+            let ticking=0;
+            const generationLabel=document.getElementById("Generation")
+            const sizeInput=document.getElementById("Size");
+            const resetButton=document.getElementById("Reset");
+            const densityInput=document.getElementById("Density");
+            const randomizeButton=document.getElementById("Randomize");
+            const speedInput=document.getElementById("Speed");
+            const startButton=document.getElementById("Start");
+            const stepButton=document.getElementById("Step");
+            const gameCanvasId="Display";
+            const gameSize=64;
+            const gameBackground="#0000";
+            const gameGrid="white";
+            const gameCell="#9fb6cc";
+            const lifeGame=new LifeGame(gameSize,gameCanvasId,gameBackground,gameGrid,gameCell);
+            resetButton.addEventListener("click",function(){lifeGame.reset(parseInt(sizeInput.value),gameBackground,gameGrid,gameCell);generationLabel.textContent=`Generation : 0`;});
+            randomizeButton.addEventListener("click",() => lifeGame.randomize(parseFloat(densityInput.value)));
+            startButton.addEventListener("click",switch_ticking);
+            stepButton.addEventListener("click",tick);
+        </script>
+    </body>
+</html>
